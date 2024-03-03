@@ -26,12 +26,21 @@ void init_config(struct config *config, int argc, char **argv) {
         // Construct the addr_set by taking the addresses that have cache set index 0
         // There will be at least one of such addresses in our buffer.
         uint32_t addr_set_size = 0;
-        for (int i = 0; i < 512 * CACHE_WAYS_L1 * CACHE_SETS_L1; i++) {
+        
+	//FILE *file = fopen("receiverad0.txt", "a");
+        //if (file == NULL) {
+        //    perror("Error opening file!\n");
+        //    return;
+	// }
+	
+	for (int i = 0; i < 512 * CACHE_WAYS_L1 * CACHE_SETS_L1; i++) {
             ADDR_PTR addr = (ADDR_PTR) (config->buffer + CACHE_LINESIZE * i);
             // both of following function should work...L3 is a more restrict set
             if (get_cache_slice_set_index(addr) == config->cache_region) {
             // if (get_L3_cache_set_index(addr) == config->cache_region) {
-                append_string_to_linked_list(&config->addr_set, addr);
+                
+		//fprintf(file, "set 0 address: %lu\n", addr);
+		append_string_to_linked_list(&config->addr_set, addr);
                 addr_set_size++;
             }
             // restrict the probing set to CACHE_WAYS_L1 to aviod self eviction
@@ -39,6 +48,8 @@ void init_config(struct config *config, int argc, char **argv) {
                 break;
 	        }
         }
+
+	//fclose(file);
         printf("Found addr_set size of %u\n", addr_set_size);
     }
 }
@@ -70,7 +81,14 @@ bool detect_bit_pp(const struct config *config)
     uint64_t prime_count = 0;
     do {
         current = config->addr_set;
-        while (current != NULL && current->next != NULL) {
+	//ADDR_PTR addr = current->next->addr;
+        //uint64_t time = measure_one_block_access_time(addr);
+        //printf("access time before priming %lu\n", time);
+	//getchar();
+
+        //uint64_t prime_start_t = get_time();
+	
+	while (current != NULL && current->next != NULL) {
             volatile uint64_t* addr1 = (uint64_t*) current->addr;
             volatile uint64_t* addr2 = (uint64_t*) current->next->addr;
             *addr1;
@@ -80,17 +98,44 @@ bool detect_bit_pp(const struct config *config)
             current = current->next;
             prime_count++;
         }
+
+	//uint64_t end_t = get_time();
+	//printf("one whole priming period %lu\n", end_t - prime_start_t);
+	//getchar();
+
+	//printf("prime count: %lu\n", prime_count);
+	//current = config->addr_set;
+        //addr = current->next->addr;
+        //time = measure_one_block_access_time(addr);
+        //printf("access time after priming %lu\n", time);
+        //getchar();
     } while ((get_time() - start_t) < config->prime_period);
     // debug("prime count%lu\n", prime_count);
+
+   
+    //printf("stuck here1");
 
     // wait for sender to access
     while (get_time() - start_t < (config->prime_period + config->access_period)) {}
 
+   
+    //printf("stuck here2");
+   
     // probe
     current = config->addr_set;
+
+    //uint64_t probe_start_t = get_time();
+
+    //printf("condition:  %lu\n", get_time() - start_t);
     while (current != NULL && (get_time() - start_t) < config->interval) {
         ADDR_PTR addr = current->addr;
         uint64_t time = measure_one_block_access_time(addr);
+	
+	//if (time > 80)
+	//{
+		//printf("access time %lu\n", time);
+		//getchar();
+	//}
 
         // When the access time is larger than 1000 cycles,
         // it is usually due to a long-latency page walk.
@@ -104,9 +149,14 @@ bool detect_bit_pp(const struct config *config)
         // debug("access time %lu\n", time);
     }
 
-    if (misses != 0) {
-        debug("Misses: %d out of %d\n", misses, total_measurements);
-    }
+    //uint64_t end_t = get_time();
+    //printf("one whole probing period %lu\n", end_t - probe_start_t);
+    //getchar();
+
+    //if (misses != 0) {
+        printf("Misses: %d out of %d\n", misses, total_measurements);
+	//getchar();
+    //}
 
     bool ret = (misses > CACHE_WAYS_L1 / 2 - 1)? true: false;
     // FIXME: If only one set region used in a L1D, the channel is really not
@@ -210,6 +260,10 @@ int main(int argc, char **argv)
 
         // cc_sync on clock edge
         uint64_t start_t = cc_sync();
+
+	//printf("current time: %lu\n", get_time());
+	//printf("sync time:  %lu\n", start_t);
+
         // current = detect_bit(&config, start_t);
         current = detect_bit(&config);
 
@@ -237,7 +291,8 @@ int main(int argc, char **argv)
         // Finally, when a NULL byte is received the receiver exits the
         // message receiving mode and restarts from the base config.
         if (flip_sequence == 0 && current == 1 && previous == 1) {
-            debug("Start sequence fully detected.\n\n");
+            printf("Start sequence fully detected.\n\n");
+	    getchar();
 
             uint32_t msg_len = 0, strike_zeros = 0;
             start_t = cc_sync();

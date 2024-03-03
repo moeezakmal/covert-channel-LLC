@@ -134,14 +134,14 @@ void init_default(struct config *config, int argc, char **argv);
 // =======================================
 
 // Access period of 0x00050000 seems too be sufficient for i3-metal
-#define CHANNEL_DEFAULT_INTERVAL        0x000f0000
+#define CHANNEL_DEFAULT_INTERVAL        0x00280000  // changed @moeez
 #define CHANNEL_DEFAULT_PERIOD          0x00050000
 #define CHANNEL_DEFAULT_REGION          0x0
 #define CHANNEL_SYNC_TIMEMASK           0x003fffff
 #define CHANNEL_SYNC_JITTER             0x4000
-#define CHANNEL_L3_MISS_THRESHOLD       220
-#define CHANNEL_L2_MISS_THRESHOLD       150 	// not used
-#define CHANNEL_L1_MISS_THRESHOLD       84
+#define CHANNEL_L3_MISS_THRESHOLD       125
+#define CHANNEL_L2_MISS_THRESHOLD       50 	// not used
+#define CHANNEL_L1_MISS_THRESHOLD       24   //changed @moeez
 #define MAX_BUFFER_LEN                  1024
 
 // TODO: following parameters need to be verified

@@ -11,12 +11,15 @@ void init_config(struct config *config, int argc, char **argv) {
 
     if (config->channel == PrimeProbe) {
         int L3_way_stride = ipow(2, LOG_CACHE_SETS_L3 + LOG_CACHE_LINESIZE);
-        uint64_t bsize = 8 * CACHE_WAYS_L3 * L3_way_stride;
+	//printf("L3 way stride: %d\n", L3_way_stride);
+
+        uint64_t bsize = 8 * 1.125 * CACHE_WAYS_L3 * L3_way_stride;
+	//printf("Buffer size: %lu\n", bsize);
 
         // Allocate a buffer of the size of the LLC
         // config->buffer = malloc((size_t) bsize);
         config->buffer = allocate_buffer(bsize);
-        printf("buffer pointer addr %p\n", config->buffer);
+        //printf("buffer pointer addr %p\n", config->buffer);
 
         // Initialize the buffer to be be the non-zero page
         for (uint32_t i = 0; i < bsize; i += 64) {
@@ -25,20 +28,37 @@ void init_config(struct config *config, int argc, char **argv) {
 
         // Construct the addr_set by taking the addresses that have cache set index 0
         uint32_t addr_set_size = 0;
+	//int set_index = 0;
+	/*FILE *file = fopen("address0.txt", "a");
+        if (file == NULL) {
+            perror("Error opening file!\n");
+            return;
+        }*/
         for (int set_index = 0; set_index < CACHE_SETS_L3; set_index++) {
             for (uint32_t line_index = 0; line_index < 8 * CACHE_WAYS_L3; line_index++) {
                 // a simple hash to shuffle the lines in physical address space
                 uint32_t stride_idx = (line_index * 167 + 13) % (8 * CACHE_WAYS_L3);
+		//printf("set idx: %d, line idx: %d, stride idx %d\n", set_index, line_index, stride_idx);
+
                 ADDR_PTR addr = (ADDR_PTR) (config->buffer + \
                         set_index * CACHE_LINESIZE + stride_idx * L3_way_stride);
+		if (addr == 140736987004928) printf("set_index? %d\n", set_index);
+		//printf("set 0: %lu\n", addr);
+		
+    		
                 // both of following function should work...L3 is a more restrict set
                 if (get_cache_slice_set_index(addr) == config->cache_region) {
                 // if (get_L3_cache_set_index(addr) == config->cache_region) {
-                    append_string_to_linked_list(&config->addr_set, addr);
+                   
+		    //printf("set 0 address: %lu\n", addr);
+		    //fprintf(file, "set 0 address: %lu\n", addr);
+		    append_string_to_linked_list(&config->addr_set, addr);
                     addr_set_size++;
                 }
             }
         }
+	
+	//fclose(file);
         printf("Found addr_set size of %u\n", addr_set_size);
     }
 }
@@ -65,7 +85,13 @@ void send_bit_pp(bool one, const struct config *config)
         struct Node *current = NULL;
         uint64_t stopTime = start_t + config->prime_period + config->access_period;
         // uint64_t stopTime = start_t + config->interval;
-        do {
+        
+	//uint64_t access_start_t = get_time();
+	
+	do {
+
+	    //uint64_t access_start_t = get_time();
+	    //uint64_t accessed_address = 0;
             current = config->addr_set;
             while (current != NULL && current->next != NULL && get_time() < stopTime) {
             // while (current != NULL && get_time() < stopTime) {
@@ -79,9 +105,18 @@ void send_bit_pp(bool one, const struct config *config)
                 *addr2;
                 current = current->next;
                 access_count++;
+		//accessed_address++; // debug
             }
+
+	    //uint64_t end_t = get_time();
+            //printf("accessed addresses: %lu, corrected one whole access period %lu\n", accessed_address, end_t - access_start_t);
+            //getchar();
         } while (get_time() < stopTime);
         debug("access count %lu time %lx\n", access_count, get_time() - start_t);
+
+	//uint64_t end_t = get_time();
+    	//printf("one whole access period %lu\n", end_t - access_start_t);
+    	//getchar();
 
         // wait for receiver to probe
         while (get_time() - start_t < config->interval) {}
@@ -203,15 +238,23 @@ int main(int argc, char **argv)
         // cc_sync on clock edge
         uint64_t start_t =  cc_sync();
 
+	//printf("start_t: %lu\n", start_t);
+
+	//printf("current time: %lu\n", get_time());
+        //printf("sync time:  %lu\n", start_t);
+
         for (int i = 0; i < 10; i++) {
             start_t = cc_sync();
             // send_bit(i % 2 == 0, &config, start_t);
             send_bit(i % 2 == 0, &config);
         }
         start_t = cc_sync();
+	//printf("start_t 11: %lu\n", start_t);
         // send_bit(true, &config, start_t);
         send_bit(true, &config);
         start_t = cc_sync();
+
+	//printf("start_t 12: %lu\n", start_t);
         // send_bit(true, &config, start_t);
         send_bit(true, &config);
 

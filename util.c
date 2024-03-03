@@ -241,7 +241,8 @@ void init_default(struct config *config, int argc, char **argv) {
     config->interval = CHANNEL_DEFAULT_INTERVAL;
 
     // Prime+Probe specific paramters:
-    config->access_period = CHANNEL_DEFAULT_PERIOD;
+    //config->access_period = CHANNEL_DEFAULT_PERIOD;
+    config->access_period = 0x00140000;
     config->prime_period = CHANNEL_DEFAULT_PERIOD;
 
 
